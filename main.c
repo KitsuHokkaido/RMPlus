@@ -7,7 +7,7 @@
 
 #define BUFFER_SIZE 60
 
-int erase_all(const char* exception);
+int erase_all(const char* exception, int exception_type);
 int get_dir(char* dir, int size);
 
 int main(int argc, char* argv[])
@@ -23,10 +23,20 @@ int main(int argc, char* argv[])
       if(argc > 2 && strcmp(argv[2], "-x") == 0)
       {
         if(argc > 3)
-        {        
-          if(erase_all(argv[3]) != 0)
+        {
+          if(argv[3][0] == '.')
           {
-            fprintf(stderr, "Error : %s\n", strerror(errno));
+            if(erase_all(argv[3], 2) != 0)
+            {
+              fprintf(stderr, "Error : %s\n", strerror(errno));
+            }
+          }
+          else 
+          {
+            if(erase_all(argv[3], 1) != 0)
+            {
+              fprintf(stderr, "Error : %s\n", strerror(errno));
+            }
           }
         }
         else 
@@ -36,7 +46,7 @@ int main(int argc, char* argv[])
       }
       else 
       {
-        if(erase_all("") != 0)
+        if(erase_all("", 1) != 0)
         {
           fprintf(stderr, "Error : %s\n", strerror(errno));
         }
@@ -44,10 +54,27 @@ int main(int argc, char* argv[])
     }
     else 
     {
-      if(remove(argv[1]) != 0)
+      for(int i = 1; i < argc; i++)
       {
-        fprintf(stderr, "Error : %s\n", strerror(errno));
-        exit(1);
+        if(remove(argv[i]) != 0)
+        {
+          if(errno == ENOTEMPTY)
+          {
+            char command[20];
+            strcpy(command, "rm -r ");
+            strcat(command, argv[i]);
+
+            if(system(command) != 0)
+            {
+              fprintf(stderr, "Error : %s\n", strerror(errno));
+              exit(1);
+            }
+          }
+          else 
+          {
+            fprintf(stderr, "Error : %s\n", strerror(errno));
+          }
+        }
       }
     }
   }
@@ -58,7 +85,7 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-int erase_all(const char* exception)
+int erase_all(const char* exception, int exception_type)
 {
   struct dirent *dir;
   
@@ -71,9 +98,19 @@ int erase_all(const char* exception)
     {
       while((dir = readdir(d)) != NULL)
       {
-        if(dir->d_type != DT_DIR && strcmp(dir->d_name, exception) != 0) 
+        if(exception_type == 1)
         {
-          remove(dir->d_name);
+          if(dir->d_type != DT_DIR && strcmp(dir->d_name, exception) != 0) 
+          {
+            remove(dir->d_name);
+          }
+        }
+        else if (exception_type == 2) 
+        {
+          if(dir->d_type != DT_DIR && strstr(dir->d_name, exception) == NULL) 
+          {
+            remove(dir->d_name);
+          }
         }
       }
       closedir(d);
@@ -100,3 +137,4 @@ int get_dir(char* dir, int size)
 
   return 0;
 }
+
