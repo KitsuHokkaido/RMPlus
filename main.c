@@ -7,8 +7,9 @@
 
 #define BUFFER_SIZE 60
 
-int erase_all(const char* exception, int exception_type);
+int erase_all(const char* exception[], int exception_type, int exception_size);
 int get_dir(char* dir, int size);
+int get_last_files(char* exception[], const char* args[], int begin, int end);
 
 int main(int argc, char* argv[])
 {
@@ -26,14 +27,20 @@ int main(int argc, char* argv[])
         {
           if(argv[3][0] == '.')
           {
-            if(erase_all(argv[3], 2) != 0)
+            char* exceptions[20];
+            get_last_files(exceptions, argv, 3, argc);
+    
+            if(erase_all(exceptions, 2, (argc - 3)) != 0)
             {
               fprintf(stderr, "Error : %s\n", strerror(errno));
             }
           }
           else 
           {
-            if(erase_all(argv[3], 1) != 0)
+            char* exceptions[20];
+            get_last_files(exceptions, argv, 3, argc);
+
+            if(erase_all(exceptions, 1, (argc - 3)) != 0)
             {
               fprintf(stderr, "Error : %s\n", strerror(errno));
             }
@@ -46,7 +53,8 @@ int main(int argc, char* argv[])
       }
       else 
       {
-        if(erase_all("", 1) != 0)
+        char* exception[] = {""};
+        if(erase_all(exception, 1, 1) != 0)
         {
           fprintf(stderr, "Error : %s\n", strerror(errno));
         }
@@ -85,7 +93,7 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-int erase_all(const char* exception, int exception_type)
+int erase_all(const char* exception[], int exception_type, int exception_size)
 {
   struct dirent *dir;
   
@@ -100,16 +108,40 @@ int erase_all(const char* exception, int exception_type)
       {
         if(exception_type == 1)
         {
-          if(dir->d_type != DT_DIR && strcmp(dir->d_name, exception) != 0) 
+          if(dir->d_type != DT_DIR)
           {
-            remove(dir->d_name);
+            int destroyable = 0;
+            for(int i = 0; i < exception_size; i++)
+            {
+              if (strcmp(dir->d_name, exception[i]) == 0) 
+              {
+                destroyable = 1;
+                break;
+              }
+            }
+            if(destroyable == 0)
+            {
+              remove(dir->d_name);
+            }
           }
         }
         else if (exception_type == 2) 
         {
-          if(dir->d_type != DT_DIR && strstr(dir->d_name, exception) == NULL) 
+          if(dir->d_type != DT_DIR)
           {
-            remove(dir->d_name);
+            int destroyable = 0;
+            for(int i = 0; i < exception_size; i++)
+            {
+              if(strstr(dir->d_name, exception[i]) != NULL) 
+              {
+                destroyable = 1;
+                break;
+              }
+            }
+            if(destroyable == 0)
+            {
+              remove(dir->d_name);
+            }
           }
         }
       }
@@ -135,6 +167,19 @@ int get_dir(char* dir, int size)
 
   strcpy(dir, buffer);
 
+  return 0;
+}
+
+int get_last_files(char* exception[], const char* args[], int begin, int end)
+{
+  for (int i = 0; i < (end-begin); i++)
+  {
+    exception[i] = args[begin+i];
+    //if(strcpy(exception[i], args[begin+i]) == NULL)
+    //{
+    //  return 1;
+    //}
+  }
   return 0;
 }
 
