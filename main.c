@@ -6,10 +6,18 @@
 #include <unistd.h>
 
 #define BUFFER_SIZE 60
+typedef enum 
+{
+  EXC_FILE,
+  EXC_EXTENSION
+} exception_type;
 
-int erase_all(const char* exception[], int exception_type, int exception_size);
+int erase_all(const char* exception[], exception_type excep_type, int exception_size);
 int get_dir(char* dir, int size);
 int get_last_files(char* exception[], const char* args[], int begin, int end);
+
+void print_help(void);
+
 
 int main(int argc, char* argv[])
 {
@@ -17,7 +25,7 @@ int main(int argc, char* argv[])
   {
     if(strcmp(argv[1],"--help") == 0)
     {
-      printf("Command : rm+ [command] [flag1] [param] [flag2] [param]\n\n[command]\n * : to delete all the files\n files : specify the name of the files\n[flags]\n -x : exception of\n -s : to delete several files\n -*f : to delete all the files\n -*d to delete all the directories\n -*fd : to delete all the files and directories\n[param]\n name : you can specify a filename\n extension : you can specify a file extension\n\nExample:\n > rm+ -*f -x file1 file2 : delete all the files excepted file1 and file2\n > rm+ -*f -x .txt : delete all the files excepted the files with extension.txt\n");
+      print_help();
     }
     else if(strcmp(argv[1], "-*f") == 0)
     {
@@ -25,22 +33,20 @@ int main(int argc, char* argv[])
       {
         if(argc > 3)
         {
+          char* exceptions[20];
+          get_last_files(exceptions, argv, 3, argc);
+          int remaining = argc - 3;
+          
           if(argv[3][0] == '.')
           {
-            char* exceptions[20];
-            get_last_files(exceptions, argv, 3, argc);
-    
-            if(erase_all(exceptions, 2, (argc - 3)) != 0)
+            if(erase_all(exceptions, EXC_EXTENSION, remaining) != 0)
             {
               fprintf(stderr, "Error : %s\n", strerror(errno));
             }
           }
           else 
           {
-            char* exceptions[20];
-            get_last_files(exceptions, argv, 3, argc);
-
-            if(erase_all(exceptions, 1, (argc - 3)) != 0)
+            if(erase_all(exceptions, EXC_FILE, remaining) != 0)
             {
               fprintf(stderr, "Error : %s\n", strerror(errno));
             }
@@ -93,7 +99,7 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-int erase_all(const char* exception[], int exception_type, int exception_size)
+int erase_all(const char* exception[], exception_type excep_type, int exception_size)
 {
   struct dirent *dir;
   
@@ -106,12 +112,12 @@ int erase_all(const char* exception[], int exception_type, int exception_size)
     {
       while((dir = readdir(d)) != NULL)
       {
-        if(exception_type == 1)
+        if(dir->d_type != DT_DIR)
         {
-          if(dir->d_type != DT_DIR)
+          int destroyable = 0;
+          for(int i = 0; i < exception_size; i++)
           {
-            int destroyable = 0;
-            for(int i = 0; i < exception_size; i++)
+            if(excep_type == EXC_FILE)
             {
               if (strcmp(dir->d_name, exception[i]) == 0) 
               {
@@ -119,18 +125,7 @@ int erase_all(const char* exception[], int exception_type, int exception_size)
                 break;
               }
             }
-            if(destroyable == 0)
-            {
-              remove(dir->d_name);
-            }
-          }
-        }
-        else if (exception_type == 2) 
-        {
-          if(dir->d_type != DT_DIR)
-          {
-            int destroyable = 0;
-            for(int i = 0; i < exception_size; i++)
+            else if(excep_type == EXC_EXTENSION)
             {
               if(strstr(dir->d_name, exception[i]) != NULL) 
               {
@@ -138,10 +133,10 @@ int erase_all(const char* exception[], int exception_type, int exception_size)
                 break;
               }
             }
-            if(destroyable == 0)
-            {
-              remove(dir->d_name);
-            }
+          }
+          if(destroyable == 0)
+          {
+            remove(dir->d_name);
           }
         }
       }
@@ -175,11 +170,32 @@ int get_last_files(char* exception[], const char* args[], int begin, int end)
   for (int i = 0; i < (end-begin); i++)
   {
     exception[i] = args[begin+i];
-    //if(strcpy(exception[i], args[begin+i]) == NULL)
-    //{
-    //  return 1;
-    //}
   }
   return 0;
+}
+
+
+void print_help()
+{
+  puts("Command : rm+ [command] [flag1] [param] [flag2] [param]\n"
+       "\n"
+       "[command]\n"
+       "* : to delete all the files\n"
+       "files : specify the name of the files\n"
+       "\n"
+       "[flags]\n"
+       " -x : exception of\n"
+       "-s : to delete several files\n"
+       "-*f : to delete all the files\n"
+       "-*d to delete all the directories\n"
+       "-*fd : to delete all the files and directories\n"
+       "\n"
+       "[param]\n"
+       "name : you can specify a filename\n"
+       "extension : you can specify a file extension\n"
+       "\n"
+       "Example:\n"
+       "> rm+ -*f -x file1 file2 : delete all the files excepted file1 and file2\n"
+       "> rm+ -*f -x .txt : delete all the files excepted the files with extension.txt\n");
 }
 
